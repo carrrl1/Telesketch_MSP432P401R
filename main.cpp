@@ -7,6 +7,7 @@
 #include "LCD.hpp"
 #include "LCD_DRIVER.hpp"
 #include "Accelerometer.hpp"
+#include "Joystick.hpp"
 
 // ##########################
 // Global/Static declarations
@@ -28,19 +29,19 @@ uint8_t g_u8AccelerometerTaskID;
 void main(void)
 {
     // - Instantiate two new Tasks
-    LED BlueLED(BIT2);
-    LED GreenLED(BIT1);
+    //LED BlueLED(BIT2);
+    //LED GreenLED(BIT1);
     LCD SCREEN;
-    Accelerometer MOTION;
-    MOTION.SetLinkedTask(SCREEN.m_u8TaskID);
+    Joystick PEN;
+    PEN.SetLinkedTask(SCREEN.m_u8TaskID);
     // - Run the overall setup function for the system
     Setup();
     // - Attach the Tasks to the Scheduler;
     //g_MainScheduler.attach(&BlueLED, 300);
-    g_MainScheduler.attach(&MOTION, 300);
+    g_MainScheduler.attach(&PEN, 300);
     g_MainScheduler.attach(&SCREEN, 300);
     if(false) {
-    	g_u8AccelerometerTaskID = MOTION.m_u8TaskID;
+    	g_u8AccelerometerTaskID = PEN.m_u8TaskID;
     	g_MainScheduler.attach(&GreenLED, 300);
     }
     // - Run the Setup for the scheduler and all tasks

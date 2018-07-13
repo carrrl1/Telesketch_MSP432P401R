@@ -25,7 +25,11 @@
 #define D_SE        0x70
 
 // Define sensitivity
-#define SV = 0.5;
+#define SL          0.33
+#define SH          0.66
+
+// Define max magnitude
+#define MAX_MAGNITUDE          16000
 
 class Joystick : public Task
 {

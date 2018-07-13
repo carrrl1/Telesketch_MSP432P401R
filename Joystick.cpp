@@ -1,4 +1,5 @@
 #include "Joystick.hpp"
+#include <stdio.h>
 
 Joystick::Joystick(){}
 
@@ -7,64 +8,73 @@ uint8_t Joystick::run()
     //Init local variables
     float l_fX=0;
     float l_fY=0;
-    float l_fMagnitude=0;
     uint32_t l_u32Direction=0;
 
     /* Store ADC14 conversion results */
-    l_fX = (float)ADC14_getResult(ADC_MEM0);
-    l_fY = (float)ADC14_getResult(ADC_MEM1);
+    l_fX = (double)ADC14_getResult(ADC_MEM0);
+    l_fY = (double)ADC14_getResult(ADC_MEM1);
 
     //Normalize the vector
-    l_fMagnitude = (uint32_t)sqrt((l_fX * l_fX) + (l_fY * l_fY));
-    l_fX = l_fX/l_fMagnitude;
-    l_fY = l_fY/l_fMagnitude;
+    l_fX = l_fX/MAX_MAGNITUDE;
+    l_fY = l_fY/MAX_MAGNITUDE;
+
+    if(l_fX >= 1) l_fX=1;
+    if(l_fY >= 1) l_fY=1;
+
+    /* Debug
+    char string[20];
+    sprintf(string, "X: %1.3f Y: %1.3f \n", l_fX ,l_fY);
+    printf(string);
+    fflush (stdout);
+    */
+
 
     //Calculate the pixel direction
     /*****************************
      *          X           Y
-     * N    -S TO  S      0 TO  1
-     * W    -1 TO  0     -S TO  S
-     * S    -S TO  S     -1 TO  0
-     * E     0 TO  1     -S TO  S
-     * NW   -S TO  1      S TO  1
-     * SW   -S TO -1     -S TO -1
-     * NE    S TO  1      S TO  1
-     * SE    S TO  1     -S TO -1
+     * N    SL TO  SH    SH TO  1
+     * W     0 TO  SL    SL TO  SH
+     * S    SL TO  SH     0 TO  SL
+     * E    SH TO  1     SL TO  SH
+     * NW    0 TO  SL    SH TO  1
+     * SW    0 TO  SL     0 TO SL
+     * NE   SH TO  1     SH TO  1
+     * SE   SH TO  1      0 TO SL
      *****************************/
-    /*
-    if ( (-SV <= l_fX && l_fX <= SV) && (0 <= l_fY && l_fY <= 1) ) {
+
+    if ( (SL <= l_fX && l_fX <= SH) && (SH <= l_fY && l_fY <= 1)         ) {
         l_u32Direction = D_N;
         goto send;
 
-    } else if ( (-1 <= l_fX && l_fX <= 0)   && (-SV <= l_fY && l_fY <= SV)  ) {
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (SL <= l_fY && l_fY <= SH) ) {
         l_u32Direction = D_W;
         goto send;
 
-    } else if ( (-SV <= l_fX && l_fX <= SV) && (-1 <= l_fY && l_fY <= 0)    ) {
+    } else if ( (SL <= l_fX && l_fX <= SH) && (0 <= l_fY && l_fY <= SL)  ) {
         l_u32Direction = D_S;
         goto send;
 
-    } else if ( (0 <= l_fX && l_fX <= 1)    && (-SV <= l_fY && l_fY <= SV)  ) {
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (SL <= l_fY && l_fY <= SH) ) {
         l_u32Direction = D_E;
         goto send;
 
-    } else if ( (-SV <= l_fX && l_fX <= 1)  && (SV <= l_fY && l_fY <= 1)    ) {
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (SH <= l_fY && l_fY <= 1)  ) {
         l_u32Direction = D_NW;
         goto send;
 
-    } else if ( (-SV <= l_fX && l_fX <= -1) && (-SV <= l_fY && l_fY <= -1)  ) {
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (0 <= l_fY && l_fY <= SL)  ) {
         l_u32Direction = D_SW;
         goto send;
 
-    } else if ( (SV <= l_fX && l_fX <= 1)   && (SV <= l_fY && l_fY <= 1)     ) {
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (SH <= l_fY && l_fY <= 1)  ) {
         l_u32Direction = D_NE;
         goto send;
 
-    } else if ( (SV <= l_fX && l_fX <= 1)   && (-SV <= l_fY && l_fY <= -1)   ) {
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (0 <= l_fY && l_fY <= SL)  ) {
         l_u32Direction = D_SE;
         goto send;
 
-    } else l_u32Direction = D_C;*/
+    } else l_u32Direction = D_C;
 
     //Send message to the LCD task
     send:

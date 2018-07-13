@@ -1,4 +1,5 @@
 #include "LCD.hpp"
+#include "Joystick.hpp"
 
 LCD::LCD()
 {
@@ -12,21 +13,29 @@ LCD::LCD()
         LCD_HORIZONTAL_MAX,
     };
     
+    //Set pen size and color
+    m_u32PenColor = BLACK_PEN;
+    m_u8PenSize = 1;
+
+    //Set Background
+    m_u32Background = WHITE_BACKGROUND;
+
+    //Set pen position
+    m_u8PenX = DISPLAY_MID;
+    m_u8PenY = DISPLAY_MID;
+
     //Set sky, earth and line rectangles coordinates
-    m_sSky.xMin = 0;
-    m_sSky.xMax = DISPLAY_SIZE;
-    m_sSky.yMin = 0;
-    m_sSky.yMax = DISPLAY_MID_LOW;
+    SetPenRectangle(m_u8PenX,
+                    m_u8PenX+m_u8PenSize,
+                    m_u8PenY,
+                    m_u8PenY+m_u8PenSize);
+    /*
+    m_sPen.xMin = m_u8PenX;
+    m_sPen.xMax = m_u8PenX+m_u8PenSize;
+    m_sPen.yMin = m_u8PenY;
+    m_sPen.yMax = m_u8PenY+m_u8PenSize;
+    */
 
-    m_sEarth.xMin = 0;
-    m_sEarth.xMax = DISPLAY_SIZE;
-    m_sEarth.yMin = DISPLAY_MID_HIGH;
-    m_sEarth.yMax = DISPLAY_SIZE;
-
-    m_sLine.xMin = 0;
-    m_sLine.xMax = DISPLAY_SIZE;
-    m_sLine.yMin = DISPLAY_MID_LOW-1;
-    m_sLine.yMax = DISPLAY_MID_HIGH+1;
 }
 
 uint8_t LCD::run()
@@ -36,54 +45,45 @@ uint8_t LCD::run()
     //Receive message
     st_Message * l_st_ReceiveMessage;
     l_st_ReceiveMessage=this->m_pMailbox->GetMessage(this->m_u8TaskID);
-
     int32_t l_i32Data=l_st_ReceiveMessage->u32Content;
 
-    //double l_iResult=128*43/(l_dData-30)
-    //int8_t l_u8Elevation = (int8_t)(63.5 + 0.7*l_i32Data);
-    int8_t l_u8Elevation = (int8_t)((30 + l_i32Data)*128/(-46+30));
-    //uint32_t l_u32Elevation = (uint32_t)(63.5 + 6.4*l_dData);
 
-    if (l_u8Elevation > 127)
-    {
-        l_u8Elevation = 127;
-    } else if (l_u8Elevation < 0)
-    {
-        l_u8Elevation = 0;
-    } else {
-        m_sLine.yMin = l_u8Elevation-1;
-        m_sLine.yMax = l_u8Elevation+1;
-    }
 
-    //Set he elvation
-    m_sSky.yMax = l_u8Elevation;
-    m_sEarth.yMin = l_u8Elevation;
-    
-    //Draw the sky
-    Graphics_setForegroundColor(&m_sContext, SKY_COLOR);
-    Graphics_fillRectangle(&m_sContext, &m_sSky);
-    //Draw the earth
-    Graphics_setForegroundColor(&m_sContext, EARTH_COLOR);
-    Graphics_fillRectangle(&m_sContext, &m_sEarth);
-    //Draw the middle line
-    if (l_u8Elevation != 0 && l_u8Elevation != 127)
-    {
-        Graphics_setForegroundColor(&m_sContext, LINE_COLOR);
-        Graphics_fillRectangle(&m_sContext, &m_sLine);
+    switch (l_i32Data) {
+    case D_N:
+        SetPenLocation(m_u8PenX, m_u8PenY-m_u8PenSize);
+        break;
+    case D_W:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY);
+        break;
+    case D_S:
+        SetPenLocation(m_u8PenX, m_u8PenY+m_u8PenSize);
+        break;
+    case D_E:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY);
+        break;
+    case D_NW:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY-m_u8PenSize);
+        break;
+    case D_SW:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY+m_u8PenSize);
+        break;
+    case D_NE:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY-m_u8PenSize);
+        break;
+    case D_SE:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY+m_u8PenSize);
+        break;
+    case D_C:
+        break;
+    default:
+        break;
     }
     
-    if (false)
-    {
-        char string[20];
-        sprintf(string, "A: %4d", l_i32Data);
-        Graphics_drawStringCentered(&m_sContext,
-                                    (int8_t *)string,
-                                    8,
-                                    64,
-                                    50,
-                                    OPAQUE_TEXT);
-    }
-    
+    //Draw pen
+    MovePen();
+    Graphics_setForegroundColor(&m_sContext, m_u32PenColor);
+    Graphics_fillRectangle(&m_sContext, &m_sPen);
 
     return(NO_ERR);
 }
@@ -170,33 +170,50 @@ uint8_t LCD::setup()
     SetOrientation(LCD_ORIENTATION_UP);
 
     /* Initializes graphics context */
-    //Graphics_initContext(&m_sContext, &m_sDisplay, &m_sDisplay_Functions);
     Graphics_initContext(&m_sContext, &m_sDisplay, &g_sDisplay_Functions);
-    Graphics_setBackgroundColor(&m_sContext, LINE_COLOR);
 
-    //Draw the sky
-    Graphics_setForegroundColor(&m_sContext, SKY_COLOR);
-    Graphics_fillRectangle(&m_sContext, &m_sSky);
-    //Draw the earth
-    Graphics_setForegroundColor(&m_sContext, EARTH_COLOR);
-    Graphics_fillRectangle(&m_sContext, &m_sEarth);
-    //Draw the middle line
-    Graphics_setForegroundColor(&m_sContext, LINE_COLOR);
-    Graphics_fillRectangle(&m_sContext, &m_sLine);
+    //Draw the background
+    Graphics_setBackgroundColor(&m_sContext, m_u32Background);
+    Graphics_clearDisplay(&m_sContext);
 
-
-    /*
+    Graphics_setForegroundColor(&m_sContext, m_u32PenColor);
     GrContextFontSet(&m_sContext, &g_sFontFixed6x8);
     Graphics_drawStringCentered(&m_sContext,
-                                    (int8_t *)"ArtificialHorizon:",
+                                    (int8_t *)"Telesketch:",
                                     AUTO_STRING_LENGTH,
                                     64,
                                     30,
                                     OPAQUE_TEXT);
-                                    */
+
 
     //drawTitle();
     MAP_Interrupt_enableMaster();
 
     return(NO_ERR);
+}
+
+void LCD::SetPenRectangle(uint8_t i_u8Min, uint8_t i_u8xMax, uint8_t i_u8yMin, uint8_t i_u8yMax)
+{
+    m_sPen.xMin = i_u8Min;
+    m_sPen.xMax = i_u8xMax;
+    m_sPen.yMin = i_u8yMin;
+    m_sPen.yMax = i_u8yMax;
+}
+
+void LCD::SetPenLocation(uint8_t i_u8PenX, uint8_t i_u8PenY)
+{
+    //Set pen position
+    if(i_u8PenX <= 127 && i_u8PenY <= 127) {
+        m_u8PenX = i_u8PenX;
+        m_u8PenY = i_u8PenY;
+    }
+}
+
+void LCD::MovePen()
+{
+    //Move pen position
+    SetPenRectangle(m_u8PenX,
+                    m_u8PenX+m_u8PenSize,
+                    m_u8PenY,
+                    m_u8PenY+m_u8PenSize);
 }
