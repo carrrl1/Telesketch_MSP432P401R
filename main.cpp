@@ -22,6 +22,20 @@ Mailbox * Task::m_pMailbox = &g_MainMailbox;
 Mailbox * Scheduler::m_pMailbox = &g_MainMailbox;
 //The ID for the accelerometer task for the ADC14 IRQ
 uint8_t g_u8AccelerometerTaskID;
+extern volatile bool g_bState=false;
+extern volatile int g_iTimeCounter=0;
+extern volatile bool g_bButtonPressed=false;
+
+/* TimerA UpMode Configuration Parameter */
+const Timer_A_UpModeConfig initUpParam_A0 =
+{
+        TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
+        TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/1 = 3MHz
+        45000,                                  // 15ms debounce period
+        TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
+        TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE ,    // Enable CCR0 interrupt
+        TIMER_A_DO_CLEAR                        // Clear value
+};
 
 // #########################
 //          MAIN
@@ -40,10 +54,7 @@ void main(void)
     //g_MainScheduler.attach(&BlueLED, 300);
     g_MainScheduler.attach(&PEN, 300);
     g_MainScheduler.attach(&SCREEN, 300);
-    if(false) {
-    	g_u8AccelerometerTaskID = PEN.m_u8TaskID;
-    	g_MainScheduler.attach(&GreenLED, 300);
-    }
+
     // - Run the Setup for the scheduler and all tasks
     g_MainScheduler.setup();
     // - Main Loop
@@ -57,6 +68,24 @@ void main(void)
             g_MainScheduler.run();
         }
     }
+}
+
+
+// **********************************
+// GPIO setup
+// @input - none
+// @output - none
+// **********************************
+void Init_GPIO(void) {
+    // Configure button S2 (P1.2) interrupt
+    GPIO_selectInterruptEdge(GPIO_PORT_P1, GPIO_PIN2, GPIO_HIGH_TO_LOW_TRANSITION);
+    GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN2);
+    GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN2);
+    GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN2);
+
+    // Disable the GPIO power-on default high-impedance mode
+    // to activate previously configured port settings
+    //PMM_unlockLPM5();
 }
 
 // **********************************
@@ -135,33 +164,48 @@ extern "C"
 	    /* ADC_MEM2 conversion completed */
 	    if(status & ADC_INT2)
 	    {
-	    	if(false) {
-	        /* Store ADC14 conversion results */
-	        uint16_t l_u16X=ADC14_getResult(ADC_MEM0);
-	        uint16_t l_u16Y=ADC14_getResult(ADC_MEM1);
-	        uint16_t l_u16Z=ADC14_getResult(ADC_MEM2);
-
-	        uint32_t l_u32Result=l_u16Y;
-	        l_u32Result <<= 16;
-	        l_u32Result |= l_u16Z;
-
-	        //Send message
-	        
-		    st_Message l_st_SendMessage;
-
-		    l_st_SendMessage.u8Sender = g_u8AccelerometerTaskID;
-		    l_st_SendMessage.u8Receiver = g_u8AccelerometerTaskID;
-		    l_st_SendMessage.u32Content = (uint32_t)l_u32Result;
-
-		    g_MainMailbox.SendMessage(l_st_SendMessage);
-		    /* 
-	        //resultsBuffer[0] = ADC14_getResult(ADC_MEM0); //X
-	        //resultsBuffer[1] = ADC14_getResult(ADC_MEM1); //Y
-	        //resultsBuffer[2] = ADC14_getResult(ADC_MEM2); //Z
-			*/
-			}
 
 	    }
 	}
 
+	/*
+	 * Port 1 interrupt handler. This handler is called whenever switches attached
+	 * to P1.1 (S1) and P1.4 (S2) are pressed.
+	 */
+	void PORT1_IRQHandler(void)
+	{
+	    if(P1IN & GPIO_PIN1)
+	    {
+	        if(g_bButtonPressed){
+	            // Set debounce flag on first high to low transition
+	            g_bButtonPressed=false;
+	        }
+
+	        // Start debounce timer
+	        Timer_A_initUpMode(TIMER_A0_BASE, &initUpParam_A0);
+	    }
+	}
+
+	/*
+	 * Timer A1 interrupt handler. This handler determines whether to reset button
+	 * debounce after debounce timer expires.
+	 */
+	void TA1_0_IRQHandler(void)
+    {
+        // Button S2 released
+        if (P1IN & BIT2)
+        {
+            g_bButtonPressed=true;
+            if(g_bState){
+                    //If 30s have passed then turn it off.
+                    if(g_iTimeCounter==1000){
+                        g_iTimeCounter=0;
+                        Timer_A_stop(TIMER_A0_BASE);
+                    } else {
+                        g_iTimeCounter++;
+                        Timer_A_initUpMode(TIMER_A0_BASE, &initUpParam_A0);
+                    }
+            } else Timer_A_stop(TIMER_A0_BASE);
+        }
+    }
 }

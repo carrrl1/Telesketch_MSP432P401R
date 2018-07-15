@@ -179,7 +179,7 @@ uint8_t LCD::setup()
     Graphics_setForegroundColor(&m_sContext, m_u32PenColor);
     GrContextFontSet(&m_sContext, &g_sFontFixed6x8);
     Graphics_drawStringCentered(&m_sContext,
-                                    (int8_t *)"Telesketch:",
+                                    (int8_t *)"Telesketch",
                                     AUTO_STRING_LENGTH,
                                     64,
                                     30,
@@ -216,4 +216,34 @@ void LCD::MovePen()
                     m_u8PenX+m_u8PenSize,
                     m_u8PenY,
                     m_u8PenY+m_u8PenSize);
+}
+
+void LCD::ChangePenColor()
+{
+    //Change pen color
+    m_u8CurrentPenColor++;
+    if(m_u8CurrentPenColor==PEN_COLORS) m_u8CurrentPenColor=0;
+    m_u32PenColor=m_u32PenColors[m_u8CurrentPenColor];
+}
+
+void LCD::ChangePenSize()
+{
+    //Change pen color
+    m_u8PenSize++;
+    if(m_u8PenSize<MAX_PEN_SIZE) m_u8PenSize=0;
+}
+
+void LCD::ChangeBackgroundColor()
+{
+    //Change pen color
+    m_u8CurrentBackgroundColor++;
+    if(m_u8CurrentBackgroundColor==BACKGROUND_COLORS) m_u8CurrentBackgroundColor=0;
+    m_u32Background=m_u32BackgroundColors[m_u8CurrentBackgroundColor];
+}
+
+void LCD::ClearDisplay()
+{
+    //Clear the display with the background color
+    Graphics_setBackgroundColor(&m_sContext, m_u32Background);
+    Graphics_clearDisplay(&m_sContext);
 }

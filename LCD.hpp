@@ -19,8 +19,18 @@
 
 //RGB color code
 #define WHITE_BACKGROUND    0xFFFFFF
+#define YELLOW_BACKGROUND   0xFF9999
+#define BLACK_BACKGROUND    0x000000
 
 #define BLACK_PEN           0x000000
+#define WHITE_PEN           0xFFFFFF
+#define BLUE_PEN            0x3333FF
+#define RED_PEN             0xFF0000
+#define GREEN_PEN           0x00CC00
+
+#define PEN_COLORS          5
+#define BACKGROUND_COLORS   3
+#define MAX_PEN_SIZE        3
 
 //LCD class
 class LCD : public Task
@@ -39,13 +49,28 @@ class LCD : public Task
         Graphics_Rectangle m_sPen;
         uint8_t m_u8PenSize, m_u8PenX, m_u8PenY;
         uint32_t m_u32PenColor, m_u32Background;
+        const uint32_t m_u32PenColors[PEN_COLORS] = {
+                                                     BLACK_PEN,
+                                                     WHITE_PEN,
+                                                     BLUE_PEN,
+                                                     RED_PEN,
+                                                     GREEN_PEN
+        };
+        const uint32_t m_u32BackgroundColors[BACKGROUND_COLORS] = {
+                                                             WHITE_BACKGROUND,
+                                                             YELLOW_BACKGROUND,
+                                                             BLACK_BACKGROUND
+        };
+        uint8_t m_u8CurrentPenColor = 0, m_u8CurrentBackgroundColor=0;
 
         void SetPenRectangle(uint8_t i_u8Min, uint8_t i_u8xMax, uint8_t i_u8yMin, uint8_t i_u8yMax);
         void SetPenLocation(uint8_t i_u8PenX, uint8_t i_u8PenY);
         void MovePen();
+        void ChangePenColor();
+        void ChangePenSize();
+        void ChangeBackgroundColor();
+        void ClearDisplay();
 
-		//Graphics_Display_Functions m_sDisplay_Functions;
-		//Graphics_Display m_sFontFixed;
 };
 
 #endif /* LCD_HPP_ */
