@@ -66,6 +66,7 @@ class LCD : public Task
         void SetPenRectangle(uint8_t i_u8Min, uint8_t i_u8xMax, uint8_t i_u8yMin, uint8_t i_u8yMax);
         void SetPenLocation(uint8_t i_u8PenX, uint8_t i_u8PenY);
         void MovePen();
+        void SetPenLocation(uint32_t i_u32Direction);
         void ChangePenColor();
         void ChangePenSize();
         void ChangeBackgroundColor();

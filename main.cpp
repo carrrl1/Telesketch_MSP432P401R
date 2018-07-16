@@ -22,16 +22,16 @@ Mailbox * Task::m_pMailbox = &g_MainMailbox;
 Mailbox * Scheduler::m_pMailbox = &g_MainMailbox;
 //The ID for the accelerometer task for the ADC14 IRQ
 uint8_t g_u8AccelerometerTaskID;
-extern volatile bool g_bState=false;
-extern volatile int g_iTimeCounter=0;
-extern volatile bool g_bButtonPressed=false;
+extern volatile bool g_bButtonDebounceS1=true;
+extern volatile bool g_bButtonDebounceS2=true;
+extern volatile bool g_bButtonDebounceJ=true;
 
 /* TimerA UpMode Configuration Parameter */
-const Timer_A_UpModeConfig initUpParam_A0 =
+const Timer_A_UpModeConfig upConfig =
 {
         TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
-        TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/1 = 3MHz
-        45000,                                  // 15ms debounce period
+        TIMER_A_CLOCKSOURCE_DIVIDER_64,         // SMCLK/64 ~ 750 kMHz
+        11250,                                  // 15ms timer period
         TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
         TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE ,    // Enable CCR0 interrupt
         TIMER_A_DO_CLEAR                        // Clear value
@@ -77,15 +77,35 @@ void main(void)
 // @output - none
 // **********************************
 void Init_GPIO(void) {
-    // Configure button S2 (P1.2) interrupt
-    GPIO_selectInterruptEdge(GPIO_PORT_P1, GPIO_PIN2, GPIO_HIGH_TO_LOW_TRANSITION);
-    GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN2);
-    GPIO_clearInterrupt(GPIO_PORT_P1, GPIO_PIN2);
-    GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN2);
 
-    // Disable the GPIO power-on default high-impedance mode
-    // to activate previously configured port settings
-    //PMM_unlockLPM5();
+    //LED Setup, assuming PORT2
+    // - P2.0 is connected to the RGB LED
+    P2->DIR |= BIT1; //Green LED
+    P2->OUT &= BIT1; // Initialize the LED Value
+
+    /* Confinguring P5.1 (S1) as an input and enabling interrupts */
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1, GPIO_PIN1 );
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1, GPIO_PIN1 );
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P1, GPIO_PIN1 );
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P1, GPIO_PIN1 , GPIO_HIGH_TO_LOW_TRANSITION);
+
+    /* Confinguring P5.1 (S1) as an input and enabling interrupts */
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P5, GPIO_PIN1 );
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P5, GPIO_PIN1 );
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P5, GPIO_PIN1 );
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P5, GPIO_PIN1 , GPIO_HIGH_TO_LOW_TRANSITION);
+
+    /* Confinguring P3.5 (S2) as an input and enabling interrupts */
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P3, GPIO_PIN5 );
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P3, GPIO_PIN5 );
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P3, GPIO_PIN5 );
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P3, GPIO_PIN5 , GPIO_HIGH_TO_LOW_TRANSITION);
+
+    /* Confinguring P4.1 (Joystick button) as an input and enabling interrupts */
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P4, GPIO_PIN1 );
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P4, GPIO_PIN1 );
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P4, GPIO_PIN1 );
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P4, GPIO_PIN1 , GPIO_HIGH_TO_LOW_TRANSITION);
 }
 
 // **********************************
@@ -122,6 +142,12 @@ void Setup(void)
 	// - P1.0 is connected to the Red LED
 	// - This is the heart beat indicator.
 	P1->DIR |= BIT0; //Red LED
+	Init_GPIO();
+
+	/* Configuring TimerA1 for Up Mode  using Driverlib*/
+    MAP_Timer_A_configureUpMode(TIMER_A1_BASE, &upConfig);
+    MAP_Interrupt_enableInterrupt(INT_TA1_0);
+
 
 	// ****************************
 	//       TIMER CONFIG
@@ -134,6 +160,8 @@ void Setup(void)
 	TIMER32_1->CONTROL = TIMER32_CONTROL_SIZE | TIMER32_CONTROL_PRESCALE_0 | TIMER32_CONTROL_MODE | TIMER32_CONTROL_IE | TIMER32_CONTROL_ENABLE;
 	NVIC_SetPriority(T32_INT1_IRQn,1);
 	NVIC_EnableIRQ(T32_INT1_IRQn);
+
+	 // Enable interrupts
 	__enable_irq();
 
 	return;
@@ -145,7 +173,7 @@ extern "C"
 	void T32_INT1_IRQHandler(void)
 	{
 		TIMER32_1->INTCLR = 0U;
-		P1->OUT ^= BIT0; // - Toggle the heart beat indicator (1ms)
+		//P1->OUT ^= BIT0; // - Toggle the heart beat indicator (1ms)
 		g_SystemTicks++;
 		return;
 	}
@@ -169,22 +197,96 @@ extern "C"
 	}
 
 	/*
-	 * Port 1 interrupt handler. This handler is called whenever switches attached
-	 * to P1.1 (S1) and P1.4 (S2) are pressed.
-	 */
-	void PORT1_IRQHandler(void)
-	{
-	    if(P1IN & GPIO_PIN1)
-	    {
-	        if(g_bButtonPressed){
-	            // Set debounce flag on first high to low transition
-	            g_bButtonPressed=false;
-	        }
+     * Port 1 interrupt handler. This handler is called whenever switches attached
+     * to P1.1 (S1)
+     */
+    void PORT1_IRQHandler(void)
+    {
+        uint32_t l_u32status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P1);
+        MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1, l_u32status);
+        if(l_u32status & GPIO_PIN1)
+        {
+            if(g_bButtonDebounceS1){
+                // Set debounce flag on first high to low transition
+                g_bButtonDebounceS1=false;
 
-	        // Start debounce timer
-	        Timer_A_initUpMode(TIMER_A0_BASE, &initUpParam_A0);
+                MAP_Interrupt_disableInterrupt(INT_PORT1);
+
+                /* Start button debounce timer */
+                MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
+            }
+        }
+    }
+
+	/*
+	 * Port 5 interrupt handler. This handler is called whenever switches attached
+	 * to P5.1 (S1)
+	 */
+	void PORT5_IRQHandler(void)
+	{
+	    printf("S1");
+	    fflush (stdout);
+	    uint32_t l_u32status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P5);
+	    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P5, l_u32status);
+	    if(l_u32status & GPIO_PIN1)
+	    {
+	        if(g_bButtonDebounceS1){
+	            // Set debounce flag on first high to low transition
+	            g_bButtonDebounceS1=false;
+
+	            MAP_Interrupt_disableInterrupt(INT_PORT5);
+
+	            /* Start button debounce timer */
+	            MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
+	        }
 	    }
 	}
+
+	/*
+     * Port 3 interrupt handler. This handler is called whenever switches attached
+     * to P3.5 (S1)
+     */
+    void PORT4_IRQHandler(void)
+    {
+        uint32_t l_u32status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P4);
+        MAP_GPIO_clearInterruptFlag(GPIO_PORT_P4, l_u32status);
+        if(l_u32status & GPIO_PIN1)
+        {
+            if(g_bButtonDebounceJ){
+                // Set debounce flag on first high to low transition
+                g_bButtonDebounceJ=false;
+
+                MAP_Interrupt_disableInterrupt(INT_PORT4);
+
+                /* Start button debounce timer */
+                MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
+            }
+        }
+    }
+
+	/*
+     * Port 3 interrupt handler. This handler is called whenever switches attached
+     * to P3.5 (S1)
+     */
+    void PORT3_IRQHandler(void)
+    {
+        printf("S2");
+        uint32_t l_u32status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P3);
+        MAP_GPIO_clearInterruptFlag(GPIO_PORT_P3, l_u32status);
+        if(l_u32status & GPIO_PIN5)
+        {
+            if(g_bButtonDebounceS2){
+                // Set debounce flag on first high to low transition
+                g_bButtonDebounceS2=false;
+
+                MAP_Interrupt_disableInterrupt(INT_PORT3);
+
+                /* Start button debounce timer */
+                MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
+            }
+        }
+    }
+
 
 	/*
 	 * Timer A1 interrupt handler. This handler determines whether to reset button
@@ -192,20 +294,39 @@ extern "C"
 	 */
 	void TA1_0_IRQHandler(void)
     {
-        // Button S2 released
-        if (P1IN & BIT2)
+        // Button S1 released
+        if (P1IN & GPIO_PIN1)
         {
-            g_bButtonPressed=true;
-            if(g_bState){
-                    //If 30s have passed then turn it off.
-                    if(g_iTimeCounter==1000){
-                        g_iTimeCounter=0;
-                        Timer_A_stop(TIMER_A0_BASE);
-                    } else {
-                        g_iTimeCounter++;
-                        Timer_A_initUpMode(TIMER_A0_BASE, &initUpParam_A0);
-                    }
-            } else Timer_A_stop(TIMER_A0_BASE);
+            g_bButtonDebounceS1 = true;
+            P2->OUT ^= BIT1;
+            MAP_Interrupt_enableInterrupt(INT_PORT1);
         }
+        // Button S1 released
+        if (P5IN & GPIO_PIN2)
+        {
+            g_bButtonDebounceS1 = true;
+            P2->OUT ^= BIT1;
+            MAP_Interrupt_enableInterrupt(INT_PORT5);
+        }
+        // Button S2 released
+        if (P3IN & GPIO_PIN5)
+        {
+            g_bButtonDebounceS2 = true;
+            P2->OUT ^= BIT1;
+            MAP_Interrupt_enableInterrupt(INT_PORT3);
+        }
+        // Button S2 released
+        if (P4IN & GPIO_PIN1)
+        {
+            g_bButtonDebounceJ = true;
+            P2->OUT ^= BIT1;
+            MAP_Interrupt_enableInterrupt(INT_PORT4);
+        }
+        if ((P5IN & GPIO_PIN1) && (P3IN & GPIO_PIN5) && (P4IN & GPIO_PIN1) && (P1IN & GPIO_PIN1))
+        {
+            MAP_Timer_A_stopTimer(TIMER_A1_BASE);
+        }
+        MAP_Timer_A_clearCaptureCompareInterrupt(TIMER_A1_BASE,
+        TIMER_A_CAPTURECOMPARE_REGISTER_0);
     }
 }

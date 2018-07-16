@@ -29,12 +29,6 @@ LCD::LCD()
                     m_u8PenX+m_u8PenSize,
                     m_u8PenY,
                     m_u8PenY+m_u8PenSize);
-    /*
-    m_sPen.xMin = m_u8PenX;
-    m_sPen.xMax = m_u8PenX+m_u8PenSize;
-    m_sPen.yMin = m_u8PenY;
-    m_sPen.yMax = m_u8PenY+m_u8PenSize;
-    */
 
 }
 
@@ -45,44 +39,9 @@ uint8_t LCD::run()
     //Receive message
     st_Message * l_st_ReceiveMessage;
     l_st_ReceiveMessage=this->m_pMailbox->GetMessage(this->m_u8TaskID);
-    int32_t l_i32Data=l_st_ReceiveMessage->u32Content;
+    uint32_t l_u32Data=l_st_ReceiveMessage->u32Content;
 
-
-
-    switch (l_i32Data) {
-    case D_N:
-        SetPenLocation(m_u8PenX, m_u8PenY-m_u8PenSize);
-        break;
-    case D_W:
-        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY);
-        break;
-    case D_S:
-        SetPenLocation(m_u8PenX, m_u8PenY+m_u8PenSize);
-        break;
-    case D_E:
-        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY);
-        break;
-    case D_NW:
-        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY-m_u8PenSize);
-        break;
-    case D_SW:
-        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY+m_u8PenSize);
-        break;
-    case D_NE:
-        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY-m_u8PenSize);
-        break;
-    case D_SE:
-        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY+m_u8PenSize);
-        break;
-    case D_C:
-        break;
-    default:
-        break;
-    }
-    
-    //Draw pen
-    MovePen();
-    Graphics_setForegroundColor(&m_sContext, m_u32PenColor);
+    SetPenLocation(l_u32Data);
     Graphics_fillRectangle(&m_sContext, &m_sPen);
 
     return(NO_ERR);
@@ -211,11 +170,46 @@ void LCD::SetPenLocation(uint8_t i_u8PenX, uint8_t i_u8PenY)
 
 void LCD::MovePen()
 {
-    //Move pen position
+    //Draw pen position
     SetPenRectangle(m_u8PenX,
                     m_u8PenX+m_u8PenSize,
                     m_u8PenY,
                     m_u8PenY+m_u8PenSize);
+}
+
+void LCD::SetPenLocation(uint32_t i_u32Direction) {
+    switch (i_u32Direction) {
+    case D_N:
+        SetPenLocation(m_u8PenX, m_u8PenY-m_u8PenSize);
+        break;
+    case D_W:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY);
+        break;
+    case D_S:
+        SetPenLocation(m_u8PenX, m_u8PenY+m_u8PenSize);
+        break;
+    case D_E:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY);
+        break;
+    case D_NW:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY-m_u8PenSize);
+        break;
+    case D_SW:
+        SetPenLocation(m_u8PenX-m_u8PenSize, m_u8PenY+m_u8PenSize);
+        break;
+    case D_NE:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY-m_u8PenSize);
+        break;
+    case D_SE:
+        SetPenLocation(m_u8PenX+m_u8PenSize, m_u8PenY+m_u8PenSize);
+        break;
+    case D_C:
+        break;
+    default:
+        break;
+    }
+    //Draw pen
+    MovePen();
 }
 
 void LCD::ChangePenColor()
@@ -224,6 +218,7 @@ void LCD::ChangePenColor()
     m_u8CurrentPenColor++;
     if(m_u8CurrentPenColor==PEN_COLORS) m_u8CurrentPenColor=0;
     m_u32PenColor=m_u32PenColors[m_u8CurrentPenColor];
+    Graphics_setForegroundColor(&m_sContext, m_u32PenColor);
 }
 
 void LCD::ChangePenSize()
@@ -239,6 +234,9 @@ void LCD::ChangeBackgroundColor()
     m_u8CurrentBackgroundColor++;
     if(m_u8CurrentBackgroundColor==BACKGROUND_COLORS) m_u8CurrentBackgroundColor=0;
     m_u32Background=m_u32BackgroundColors[m_u8CurrentBackgroundColor];
+    //Draw the background
+    Graphics_setBackgroundColor(&m_sContext, m_u32Background);
+    Graphics_clearDisplay(&m_sContext);
 }
 
 void LCD::ClearDisplay()
