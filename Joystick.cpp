@@ -80,12 +80,7 @@ uint8_t Joystick::run()
     send:
     st_Message l_st_SendMessage;
 
-    l_st_SendMessage.u8Sender = this->m_u8TaskID;
-    l_st_SendMessage.u8Receiver = this->m_u8LinkedTaskID;
-    l_st_SendMessage.u32Content = l_u32Direction;
-
-    this->m_pMailbox->SendMessage(l_st_SendMessage);
-
+    SendMessage(l_u32Direction);
     return(NO_ERR);
 }
 

@@ -20,6 +20,8 @@ Mailbox g_MainMailbox;
 // - Instantiate the mailbox pointer for Task and Scheduler class
 Mailbox * Task::m_pMailbox = &g_MainMailbox;
 Mailbox * Scheduler::m_pMailbox = &g_MainMailbox;
+// Pointer to the LCD task
+LCD * g_pLCD_Task;
 //The ID for the accelerometer task for the ADC14 IRQ
 uint8_t g_u8AccelerometerTaskID;
 extern volatile bool g_bButtonDebounceS1=true;
@@ -46,6 +48,7 @@ void main(void)
     //LED BlueLED(BIT2);
     //LED GreenLED(BIT1);
     LCD SCREEN;
+    g_pLCD_Task = &SCREEN;
     Joystick PEN;
     PEN.SetLinkedTask(SCREEN.m_u8TaskID);
     // - Run the overall setup function for the system
@@ -98,17 +101,17 @@ void INIT_GPIO(void) {
     MAP_Interrupt_enableInterrupt(INT_PORT3);
 
     /* Confinguring P4.1 as an input and enabling interrupts */
-    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P4, GPIO_PIN3);
-    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P4, GPIO_PIN3);
-    MAP_GPIO_enableInterrupt(GPIO_PORT_P4, GPIO_PIN3);
-    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P4, GPIO_PIN3, GPIO_HIGH_TO_LOW_TRANSITION);
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P4, GPIO_PIN1);
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P4, GPIO_PIN1);
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P4, GPIO_PIN1);
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P4, GPIO_PIN1, GPIO_HIGH_TO_LOW_TRANSITION);
     MAP_Interrupt_enableInterrupt(INT_PORT4);
 }
 
 void EN_GPIO_INT(void) {
     MAP_Interrupt_enableInterrupt(INT_PORT5);
-    MAP_Interrupt_enableInterrupt(INT_PORT3);
     MAP_Interrupt_enableInterrupt(INT_PORT4);
+    MAP_Interrupt_enableInterrupt(INT_PORT3);
 }
 
 void DIS_GPIO_INT(void) {
@@ -225,6 +228,7 @@ extern "C"
 	            DIS_GPIO_INT();
 
 	            P2->OUT ^= BIT1;
+	            g_pLCD_Task->SetCurrentCMD(CMD_CHANGE_BACKGROUND);
 
 	            /* Start button debounce timer */
 	            MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
@@ -242,7 +246,7 @@ extern "C"
         MAP_GPIO_clearInterruptFlag(GPIO_PORT_P4, status);
 
         /* Handles S1 button press */
-        if (status & GPIO_PIN3)
+        if (status & GPIO_PIN1)
         {
             if (g_bButtonDebounceJ)
             {
@@ -251,6 +255,7 @@ extern "C"
                 DIS_GPIO_INT();
 
                 P2->OUT ^= BIT1;
+                g_pLCD_Task->SetCurrentCMD(CMD_CHANGE_PEN_COLOR);
 
                 /* Start button debounce timer */
                 MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
@@ -272,11 +277,12 @@ extern "C"
         {
             if (g_bButtonDebounceS2)
             {
-                g_bButtonDebounceS1 = false;
+                g_bButtonDebounceS2 = false;
 
                 DIS_GPIO_INT();
 
                 P2->OUT ^= BIT1;
+                g_pLCD_Task->SetCurrentCMD(CMD_CHANGE_PEN_SIZE);
 
                 /* Start button debounce timer */
                 MAP_Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_UP_MODE);
@@ -300,12 +306,12 @@ extern "C"
 	    {
 	        g_bButtonDebounceS2 = true;
 	    }
-	    if (P4IN & GPIO_PIN3)
+	    if (P4IN & GPIO_PIN1)
 	    {
 	        g_bButtonDebounceJ = true;
 	    }
 
-	    if ((P5IN & GPIO_PIN1) && (P3IN & GPIO_PIN5) && (P4IN & GPIO_PIN3))
+	    if ((P5IN & GPIO_PIN1) && (P3IN & GPIO_PIN5) && (P4IN & GPIO_PIN1))
 	    {
 	        MAP_Timer_A_stopTimer(TIMER_A1_BASE);
 	        EN_GPIO_INT();

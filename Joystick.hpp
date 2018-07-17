@@ -31,13 +31,6 @@
 // Define max magnitude
 #define MAX_MAGNITUDE          16000
 
-// Define the commands
-#define CMD_DRAW                  0x10
-#define CMD_CLEAR_DISPLAY         0x20
-#define CMD_CHANGE_BACKGROUND     0x30
-#define CMD_CHANGE_PEN_COLOR      0x40
-#define CMD_CHANGE_PEN_SIZE       0x50
-
 class Joystick : public Task
 {
     public:

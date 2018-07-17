@@ -30,19 +30,43 @@ LCD::LCD()
                     m_u8PenY,
                     m_u8PenY+m_u8PenSize);
 
+    //Set current command
+    SetCurrentCMD(CMD_DRAW);
+
 }
 
 uint8_t LCD::run()
 {
+    switch (m_u8CurrentCommand) {
+    case CMD_DRAW:
+        uint32_t l_u32Data=ReceiveMessage();
+        SetPenLocation(l_u32Data);
+        Graphics_fillRectangle(&m_sContext, &m_sPen);
+        break;
 
+    case CMD_CLEAR_DISPLAY:
+        ClearDisplay();
+        SetCurrentCMD(CMD_DRAW);
+        break;
 
-    //Receive message
-    st_Message * l_st_ReceiveMessage;
-    l_st_ReceiveMessage=this->m_pMailbox->GetMessage(this->m_u8TaskID);
-    uint32_t l_u32Data=l_st_ReceiveMessage->u32Content;
+    case CMD_CHANGE_BACKGROUND:
+        ChangeBackgroundColor();
+        SetCurrentCMD(CMD_DRAW);
+        break;
 
-    SetPenLocation(l_u32Data);
-    Graphics_fillRectangle(&m_sContext, &m_sPen);
+    case CMD_CHANGE_PEN_COLOR:
+        ChangePenColor();
+        SetCurrentCMD(CMD_DRAW);
+        break;
+
+    case CMD_CHANGE_PEN_SIZE:
+        ChangePenSize();
+        SetCurrentCMD(CMD_DRAW);
+
+    default:
+        SetCurrentCMD(CMD_DRAW);
+        break;
+    }
 
     return(NO_ERR);
 }
@@ -225,14 +249,14 @@ void LCD::ChangePenSize()
 {
     //Change pen color
     m_u8PenSize++;
-    if(m_u8PenSize<MAX_PEN_SIZE) m_u8PenSize=0;
+    if(m_u8PenSize>MAX_PEN_SIZE) m_u8PenSize=1;
 }
 
 void LCD::ChangeBackgroundColor()
 {
     //Change pen color
     m_u8CurrentBackgroundColor++;
-    if(m_u8CurrentBackgroundColor==BACKGROUND_COLORS) m_u8CurrentBackgroundColor=0;
+    if(m_u8CurrentBackgroundColor>=BACKGROUND_COLORS) m_u8CurrentBackgroundColor=0;
     m_u32Background=m_u32BackgroundColors[m_u8CurrentBackgroundColor];
     //Draw the background
     Graphics_setBackgroundColor(&m_sContext, m_u32Background);

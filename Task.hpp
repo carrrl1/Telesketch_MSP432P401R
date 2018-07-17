@@ -18,6 +18,8 @@ class Task
 		uint8_t             GetTaskPriority(void) {return m_u8Priority;};
 		void                SetTaskPriority(uint8_t i_u8NewPriority){m_u8Priority = i_u8NewPriority;};
 		void                SetLinkedTask(uint8_t i_u8LinkedTaskID){m_u8LinkedTaskID = i_u8LinkedTaskID;};
+		uint32_t            ReceiveMessage(void);
+		void                SendMessage(uint32_t i_u32Data);
 		static Mailbox * m_pMailbox; // - Pointer to the main Mailbox
 	private:
 	   static uint8_t m_u8NextTaskID;

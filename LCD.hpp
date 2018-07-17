@@ -19,7 +19,7 @@
 
 //RGB color code
 #define WHITE_BACKGROUND    0xFFFFFF
-#define YELLOW_BACKGROUND   0xFF9999
+#define YELLOW_BACKGROUND   0xCCCC00
 #define BLACK_BACKGROUND    0x000000
 
 #define BLACK_PEN           0x000000
@@ -32,6 +32,13 @@
 #define BACKGROUND_COLORS   3
 #define MAX_PEN_SIZE        3
 
+// Define the commands
+#define CMD_DRAW                  0x10
+#define CMD_CLEAR_DISPLAY         0x20
+#define CMD_CHANGE_BACKGROUND     0x30
+#define CMD_CHANGE_PEN_COLOR      0x40
+#define CMD_CHANGE_PEN_SIZE       0x50
+
 //LCD class
 class LCD : public Task
 {
@@ -39,6 +46,7 @@ class LCD : public Task
         LCD();
         virtual uint8_t run(void);
         virtual uint8_t setup(void);
+        void SetCurrentCMD(uint8_t i_u8Command){this->m_u8CurrentCommand=i_u8Command;};
 
     protected:
     private:
@@ -47,7 +55,7 @@ class LCD : public Task
 		Graphics_Context m_sContext;
 		Graphics_Display m_sDisplay;
         Graphics_Rectangle m_sPen;
-        uint8_t m_u8PenSize, m_u8PenX, m_u8PenY;
+        uint8_t m_u8PenSize, m_u8PenX, m_u8PenY, m_u8CurrentCommand;
         uint32_t m_u32PenColor, m_u32Background;
         const uint32_t m_u32PenColors[PEN_COLORS] = {
                                                      BLACK_PEN,
