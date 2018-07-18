@@ -4,40 +4,84 @@ Accelerometer::Accelerometer(){}
 
 uint8_t Accelerometer::run()
 {
-    //Receive message
-    
-    if (false)
-    {
-        st_Message * l_st_ReceiveMessage;
-        l_st_ReceiveMessage=this->m_pMailbox->GetMessage(this->m_u8TaskID);
-
-        uint32_t l_u32Data=l_st_ReceiveMessage->u32Content;
-
-        int16_t l_u16Y = (int16_t)(l_u32Data>>16);
-        int16_t l_u16Z = (int16_t)l_u32Data;
-        float l_fX = 8500;
-        float l_fY = (float)(l_u16Y);
-        float l_fZ = (float)(l_u16Z);
-    }
+    //Init local variables
+    float l_fX=0;
+    float l_fY=0;
+    float l_fZ=0;
+    uint32_t l_u32Direction=0;
 
     /* Store ADC14 conversion results */
-    float l_fX=(float)ADC14_getResult(ADC_MEM0);
-    float l_fY=(float)ADC14_getResult(ADC_MEM1);
-    float l_fZ=(float)ADC14_getResult(ADC_MEM2);
+    l_fX=(float)ADC14_getResult(ADC_MEM0);
+    l_fY=(float)ADC14_getResult(ADC_MEM1);
+    l_fZ=(float)ADC14_getResult(ADC_MEM2);
+
+    //Normalize the vector
+    l_fX = (l_fX-MIN_VOLTAGE)/(MAX_VOLTAGE-MIN_VOLTAGE);
+    l_fY = (l_fY-MIN_VOLTAGE)/(MAX_VOLTAGE-MIN_VOLTAGE);
+
+    if(l_fX >= 1) l_fX=1;
+    if(l_fY >= 1) l_fY=1;
+
+    /* Debug
+    char string[20];
+    sprintf(string, "X: %1.3f Y: %1.3f \n", l_fX ,l_fY);
+    printf(string);
+    fflush (stdout);
+    */
 
 
-    //Calculate the pitch angle from the accelerometer data
-    int32_t l_i32Pitch = (int32_t)(atan2(-(l_fX),sqrt(l_fZ*l_fZ + l_fY*l_fY)) * 57.3);  
+    //Calculate the pixel direction
+    /*****************************
+     *          X           Y
+     * N    SL TO  SH    SH TO  1
+     * W     0 TO  SL    SL TO  SH
+     * S    SL TO  SH     0 TO  SL
+     * E    SH TO  1     SL TO  SH
+     * NW    0 TO  SL    SH TO  1
+     * SW    0 TO  SL     0 TO SL
+     * NE   SH TO  1     SH TO  1
+     * SE   SH TO  1      0 TO SL
+     *****************************/
+
+    if ( (SL <= l_fX && l_fX <= SH) && (SH <= l_fY && l_fY <= 1)         ) {
+        l_u32Direction = D_N;
+        goto send;
+
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (SL <= l_fY && l_fY <= SH) ) {
+        l_u32Direction = D_W;
+        goto send;
+
+    } else if ( (SL <= l_fX && l_fX <= SH) && (0 <= l_fY && l_fY <= SL)  ) {
+        l_u32Direction = D_S;
+        goto send;
+
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (SL <= l_fY && l_fY <= SH) ) {
+        l_u32Direction = D_E;
+        goto send;
+
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (SH <= l_fY && l_fY <= 1)  ) {
+        l_u32Direction = D_NW;
+        goto send;
+
+    } else if ( (0 <= l_fX && l_fX <= SL)  && (0 <= l_fY && l_fY <= SL)  ) {
+        l_u32Direction = D_SW;
+        goto send;
+
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (SH <= l_fY && l_fY <= 1)  ) {
+        l_u32Direction = D_NE;
+        goto send;
+
+    } else if ( (SH <= l_fX && l_fX <= 1)  && (0 <= l_fY && l_fY <= SL)  ) {
+        l_u32Direction = D_SE;
+        goto send;
+
+    } else l_u32Direction = D_C;
 
     //Send message to the LCD task
+    send:
     st_Message l_st_SendMessage;
 
-    l_st_SendMessage.u8Sender = this->m_u8TaskID;
-    l_st_SendMessage.u8Receiver = this->m_u8LinkedTaskID;
-    l_st_SendMessage.u32Content = l_i32Pitch;
-
-    this->m_pMailbox->SendMessage(l_st_SendMessage);
-
+    SendMessage(l_u32Direction);
     return(NO_ERR);
 }
 

@@ -11,8 +11,8 @@ uint8_t Joystick::run()
     uint32_t l_u32Direction=0;
 
     /* Store ADC14 conversion results */
-    l_fX = (double)ADC14_getResult(ADC_MEM0);
-    l_fY = (double)ADC14_getResult(ADC_MEM1);
+    l_fX = (float)ADC14_getResult(ADC_MEM0);
+    l_fY = (float)ADC14_getResult(ADC_MEM1);
 
     //Normalize the vector
     l_fX = l_fX/MAX_MAGNITUDE;

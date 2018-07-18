@@ -8,6 +8,10 @@
 #include "LCD_DRIVER.hpp"
 #include "Accelerometer.hpp"
 #include "Joystick.hpp"
+// ##########################
+// Defines
+// ##########################
+#define USE_ACCL 1
 
 // ##########################
 // Global/Static declarations
@@ -49,7 +53,13 @@ void main(void)
     //LED GreenLED(BIT1);
     LCD SCREEN;
     g_pLCD_Task = &SCREEN;
-    Joystick PEN;
+
+    #if USE_ACCL
+        Accelerometer PEN;
+    #else
+        Joystick PEN;
+    #endif
+
     PEN.SetLinkedTask(SCREEN.m_u8TaskID);
     // - Run the overall setup function for the system
     Setup();
